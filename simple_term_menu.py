@@ -1972,6 +1972,37 @@ def parse_arguments() -> AttributeDict:
     return args
 
 
+def show_menu(menu_ops: dict[dict[str: str]], title="Select", quit_choice="[q] 나가기", verbose=True):
+    """
+    Example
+    ========
+        >>> value, key = show_menu({'[a] Choice-1' : 1, '[b] Choice-2': 2, '[q] Quit': None}, title="Select")
+        # (a, b, q - keyboard shortcuts)
+    """
+
+    mainMenu = TerminalMenu(list(menu_ops.keys()), title=title)
+
+    exit = False
+    while not exit:
+        optionsIndex = mainMenu.show()
+        choice = list(menu_ops.keys())[optionsIndex]
+    
+        if (choice == quit_choice):
+            exit = True
+        else:
+            if verbose: print(choice + "\n")
+
+            if isinstance(menu_ops[choice], dict):
+                value, _ = show_menu(menu_ops[choice], title=choice)
+                if value is not None:
+                    return value, choice
+                    
+            else:
+                return menu_ops[choice], " ".join(choice.split()[1:])
+    
+    return None, None
+
+
 def main() -> None:
     try:
         args = parse_arguments()
