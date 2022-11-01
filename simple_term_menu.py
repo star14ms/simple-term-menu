@@ -73,7 +73,7 @@ DEFAULT_SEARCH_CASE_SENSITIVE = False
 DEFAULT_SEARCH_HIGHLIGHT_STYLE = ("fg_black", "bg_yellow", "bold")
 DEFAULT_SEARCH_KEY = "/"
 DEFAULT_SHORTCUT_BRACKETS_HIGHLIGHT_STYLE = ("fg_gray",)
-DEFAULT_SHORTCUT_KEY_HIGHLIGHT_STYLE = ("fg_blue",)
+DEFAULT_SHORTCUT_KEY_HIGHLIGHT_STYLE = ("fg_yellow",)
 DEFAULT_SHOW_MULTI_SELECT_HINT = False
 DEFAULT_SHOW_SEARCH_HINT = False
 DEFAULT_SHOW_SHORTCUT_HINTS = False
@@ -81,6 +81,23 @@ DEFAULT_SHOW_SHORTCUT_HINTS_IN_STATUS_BAR = True
 DEFAULT_STATUS_BAR_BELOW_PREVIEW = False
 DEFAULT_STATUS_BAR_STYLE = ("fg_yellow", "bg_black")
 MIN_VISIBLE_MENU_ENTRIES_COUNT = 3
+
+
+# Support for East Asian Word
+if WINDOWS:
+    try:
+        _unicode = unicode
+    except NameError:
+        _unicode = str
+    from unicodedata import east_asian_width
+
+RE_ANSI = re.compile(r"\x1b\[[;\d]*[A-Za-z]")
+
+def len_str(text):
+    text = RE_ANSI.sub('', text)
+    len_str = sum(2 if east_asian_width(ch) in 'FW' else 1 for ch in _unicode(text))
+
+    return len_str
 
 
 class InvalidParameterCombinationError(Exception):
@@ -114,7 +131,7 @@ def get_locale() -> str:
 def wcswidth(text: str) -> int:
     if WINDOWS:
         # TODO: Implement Windows compatible solution for wcswidth
-        return len(text)
+        return len_str(text)
     if not hasattr(wcswidth, "libc"):
         if platform.system() == "Darwin":
             wcswidth.libc = ctypes.cdll.LoadLibrary("libSystem.dylib")  # type: ignore
@@ -898,7 +915,7 @@ class TerminalMenu:
             raise e
 
     @classmethod
-    def _get_windows_terminal_size(cls) -> (int, int):
+    def _get_windows_terminal_size(cls) -> Tuple[int, int]:
         cols, rows = os.get_terminal_size(sys.stdout.fileno())
         return (cols, rows)
 
@@ -1102,7 +1119,7 @@ class TerminalMenu:
                 if menu_index == self._view.active_menu_index:
                     apply_style()
                 self._stdout.write((num_cols - wcswidth(menu_entry) - all_cursors_width - shortcut_string_len) * " ")
-                if displayed_index < self._viewport.upper_index:
+                if displayed_index < self._viewport.upper_index: ###
                     self._stdout.write("\n")
             empty_menu_lines = self._viewport.upper_index - displayed_index
             self._stdout.write(
@@ -1513,8 +1530,8 @@ class TerminalMenu:
         try:
             init_signal_handling()
             menu_action_to_keys = {
-                "menu_up": set(("up", "ctrl-k", "k")),
-                "menu_down": set(("down", "ctrl-j", "j")),
+                "menu_up": set(("up", "ctrl-k", "k", "h")),
+                "menu_down": set(("down", "ctrl-j", "j", "m", "p")),
                 "accept": set(self._accept_keys),
                 "multi_select": set(self._multi_select_keys),
                 "quit": set(("escape", "q")),
