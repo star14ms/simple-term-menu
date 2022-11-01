@@ -1,8 +1,8 @@
 # Simple Terminal Menu
 
-## Overview
-
 ![](simple_term_menu_preview.gif)
+
+## Overview
 
 `simple-term-menu` creates simple menus for interactive command line programs. It can be used to offer a choice of
 different options to the user. Menu entries can be selected with the arrow or j/k keys. The module uses the terminfo
