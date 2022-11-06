@@ -59,7 +59,7 @@ DEFAULT_CYCLE_CURSOR = True
 DEFAULT_EXIT_ON_SHORTCUT = True
 DEFAULT_MENU_CURSOR = "> "
 DEFAULT_MENU_CURSOR_STYLE = ("fg_red", "bold")
-DEFAULT_MENU_HIGHLIGHT_STYLE = ("standout",)
+DEFAULT_MENU_HIGHLIGHT_STYLE = ("standout", "bold")
 DEFAULT_MULTI_SELECT = False
 DEFAULT_MULTI_SELECT_CURSOR = "[*] "
 DEFAULT_MULTI_SELECT_CURSOR_BRACKETS_STYLE = ("fg_gray",)
@@ -72,16 +72,16 @@ DEFAULT_PREVIEW_TITLE = "preview"
 DEFAULT_SEARCH_CASE_SENSITIVE = False
 DEFAULT_SEARCH_HIGHLIGHT_STYLE = ("fg_black", "bg_yellow", "bold")
 DEFAULT_SEARCH_KEY = "/"
-DEFAULT_SHORTCUT_BRACKETS_HIGHLIGHT_STYLE = ("fg_gray",)
-DEFAULT_SHORTCUT_KEY_HIGHLIGHT_STYLE = ("fg_yellow",)
+DEFAULT_UNHIGHLIGHT_STYLE = ("fg_gray",)
+DEFAULT_SHORTCUT_KEY_HIGHLIGHT_STYLE = ("bold",)
 DEFAULT_SHOW_MULTI_SELECT_HINT = False
 DEFAULT_SHOW_SEARCH_HINT = False
 DEFAULT_SHOW_SHORTCUT_HINTS = False
 DEFAULT_SHOW_SHORTCUT_HINTS_IN_STATUS_BAR = True
-DEFAULT_STATUS_BAR_BELOW_PREVIEW = False
+DEFAULT_STATUS_BAR_BELOW_PREVIEW = True
 DEFAULT_STATUS_BAR_STYLE = ("fg_yellow", "bg_black")
 DEFAULT_QUIT_OPTION_STYLE = ("fg_red",)
-DEFAULT_FOLDER_OPTION_STYLE = ("fg_cyan",)
+DEFAULT_FOLDER_OPTION_STYLE = ("bold",)
 MIN_VISIBLE_MENU_ENTRIES_COUNT = 3
 
 
@@ -567,7 +567,7 @@ class TerminalMenu:
         "fg_blue": f"{_name_to_control_character['escape']}[34m",
         "fg_purple": f"{_name_to_control_character['escape']}[35m",
         "fg_cyan": f"{_name_to_control_character['escape']}[36m",
-        "fg_gray": f"{_name_to_control_character['escape']}[37m",
+        "fg_gray": f"{_name_to_control_character['escape']}[38;5;0m",
         "bold": f"{_name_to_control_character['escape']}[1m",
         "faint": f"{_name_to_control_character['escape']}[2m",
         "italics": f"{_name_to_control_character['escape']}[3m", # Does not show in CMD.exe
@@ -616,7 +616,7 @@ class TerminalMenu:
         search_case_sensitive: bool = DEFAULT_SEARCH_CASE_SENSITIVE,
         search_highlight_style: Optional[Iterable[str]] = DEFAULT_SEARCH_HIGHLIGHT_STYLE,
         search_key: Optional[str] = DEFAULT_SEARCH_KEY,
-        shortcut_brackets_highlight_style: Optional[Iterable[str]] = DEFAULT_SHORTCUT_BRACKETS_HIGHLIGHT_STYLE,
+        _unhighlight_style: Optional[Iterable[str]] = DEFAULT_UNHIGHLIGHT_STYLE,
         shortcut_key_highlight_style: Optional[Iterable[str]] = DEFAULT_SHORTCUT_KEY_HIGHLIGHT_STYLE,
         show_multi_select_hint: bool = DEFAULT_SHOW_MULTI_SELECT_HINT,
         show_multi_select_hint_text: Optional[str] = None,
@@ -739,8 +739,8 @@ class TerminalMenu:
         self._search_case_sensitive = search_case_sensitive
         self._search_highlight_style = tuple(search_highlight_style) if search_highlight_style is not None else ()
         self._search_key = search_key
-        self._shortcut_brackets_highlight_style = (
-            tuple(shortcut_brackets_highlight_style) if shortcut_brackets_highlight_style is not None else ()
+        self._unhighlight_style = (
+            tuple(_unhighlight_style) if _unhighlight_style is not None else ()
         )
         self._shortcut_key_highlight_style = (
             tuple(shortcut_key_highlight_style) if shortcut_key_highlight_style is not None else ()
@@ -946,7 +946,7 @@ class TerminalMenu:
             self._menu_highlight_style,
             self._search_highlight_style,
             self._shortcut_key_highlight_style,
-            self._shortcut_brackets_highlight_style,
+            self._unhighlight_style,
             self._status_bar_style,
             self._quit_option_style,
             self._folder_option_style,
@@ -1077,7 +1077,7 @@ class TerminalMenu:
             current_menu_block_displayed_height = 0  # sum all written lines
             num_cols = self._num_cols()
             if self._title_lines:
-                apply_style(self._shortcut_key_highlight_style)
+                apply_style(self._status_bar_style)
                 self._stdout.write(
                     len(self._title_lines) * self._codename_to_terminal_code["cursor_up"]
                     + "\r"
@@ -1095,25 +1095,33 @@ class TerminalMenu:
                 self._stdout.write(all_cursors_width * self._codename_to_terminal_code["cursor_right"])
                 if self._shortcuts_defined:
                     if current_shortcut_key is not None:
-                        apply_style(self._shortcut_brackets_highlight_style)
+                        shortcut_key_style = \
+                            self._menu_highlight_style if menu_index == self._view.active_menu_index else \
+                            self._unhighlight_style
+                        apply_style(shortcut_key_style)
+                        shortcut_key_style = \
+                            self._quit_option_style if menu_entry.lower() == 'quit' else \
+                            shortcut_key_style
+                        apply_style(shortcut_key_style, reset=False)
+
                         self._stdout.write("[")
-
-                        if menu_entry.lower() == 'quit':
-                            _shortcut_key_highlight_style = self._quit_option_style
-                        else:
-                            _shortcut_key_highlight_style = self._shortcut_key_highlight_style
-                        apply_style(_shortcut_key_highlight_style)
-                        # apply_style(self._shortcut_key_highlight_style)
-
                         self._stdout.write(current_shortcut_key)
-                        apply_style(self._shortcut_brackets_highlight_style)
                         self._stdout.write("]")
                         apply_style()
                     else:
                         self._stdout.write(3 * " ")
                     self._stdout.write(" ")
-                if menu_index == self._view.active_menu_index:
-                    apply_style(self._menu_highlight_style)
+
+                menu_style = \
+                    self._menu_highlight_style if menu_index == self._view.active_menu_index else \
+                    self._unhighlight_style
+                apply_style(menu_style)
+                menu_style = \
+                    self._quit_option_style if menu_entry.lower() == 'quit' else \
+                    self._folder_option_style if menu_entry[-1] == '/' else \
+                    menu_style
+                apply_style(menu_style, reset=False)
+
                 if self._search and self._search.search_text != "":
                     match_obj = self._search.matches[displayed_index][1]
                     self._stdout.write(
@@ -1132,10 +1140,6 @@ class TerminalMenu:
                         menu_entry[match_obj.end() : num_cols - all_cursors_width - shortcut_string_len]
                     )
                 else:
-                    if menu_entry.lower() == 'quit':
-                        apply_style(self._quit_option_style)
-                    if menu_entry[-1] == '/':
-                        apply_style(self._folder_option_style)
                     self._stdout.write(menu_entry[: num_cols - all_cursors_width - shortcut_string_len])
                 if menu_index == self._view.active_menu_index:
                     apply_style()
@@ -1830,9 +1834,9 @@ def get_argumentparser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--shortcut-brackets-highlight-style",
         action="store",
-        dest="shortcut_brackets_highlight_style",
-        default=",".join(DEFAULT_SHORTCUT_BRACKETS_HIGHLIGHT_STYLE),
-        help='style of brackets enclosing shortcut keys (default: "%(default)s")',
+        dest="_unhighlight_style",
+        default=",".join(DEFAULT_UNHIGHLIGHT_STYLE),
+        help='style of unhighlighting (default: "%(default)s")',
     )
     parser.add_argument(
         "--shortcut-key-highlight-style",
@@ -1972,10 +1976,10 @@ def parse_arguments() -> AttributeDict:
         args.shortcut_key_highlight_style = tuple(args.shortcut_key_highlight_style.split(","))
     else:
         args.shortcut_key_highlight_style = None
-    if args.shortcut_brackets_highlight_style != "":
-        args.shortcut_brackets_highlight_style = tuple(args.shortcut_brackets_highlight_style.split(","))
+    if args._unhighlight_style != "":
+        args._unhighlight_style = tuple(args._unhighlight_style.split(","))
     else:
-        args.shortcut_brackets_highlight_style = None
+        args._unhighlight_style = None
     if args.status_bar_style != "":
         args.status_bar_style = tuple(args.status_bar_style.split(","))
     else:
@@ -2124,7 +2128,7 @@ def main() -> None:
             search_case_sensitive=args.case_sensitive,
             search_highlight_style=args.search_highlight_style,
             search_key=args.search_key,
-            shortcut_brackets_highlight_style=args.shortcut_brackets_highlight_style,
+            _unhighlight_style=args._unhighlight_style,
             shortcut_key_highlight_style=args.shortcut_key_highlight_style,
             show_multi_select_hint=args.show_multi_select_hint,
             show_multi_select_hint_text=args.show_multi_select_hint_text,

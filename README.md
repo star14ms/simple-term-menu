@@ -1,8 +1,8 @@
 # Simple Terminal Menu
 
-![](readme_img/simple_term_menu_preview.gif)
+![](readme_img/show_menu.gif)
 
-![](readme_img/select_file.png)
+![](readme_img/select_file.gif)
 
 ## Overview
 
