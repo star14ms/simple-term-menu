@@ -80,6 +80,8 @@ DEFAULT_SHOW_SHORTCUT_HINTS = False
 DEFAULT_SHOW_SHORTCUT_HINTS_IN_STATUS_BAR = True
 DEFAULT_STATUS_BAR_BELOW_PREVIEW = False
 DEFAULT_STATUS_BAR_STYLE = ("fg_yellow", "bg_black")
+DEFAULT_QUIT_OPTION_STYLE = ("fg_red",)
+DEFAULT_FOLDER_OPTION_STYLE = ("fg_cyan",)
 MIN_VISIBLE_MENU_ENTRIES_COUNT = 3
 
 
@@ -625,6 +627,8 @@ class TerminalMenu:
         status_bar: Optional[Union[str, Iterable[str], Callable[[str], str]]] = None,
         status_bar_below_preview: bool = DEFAULT_STATUS_BAR_BELOW_PREVIEW,
         status_bar_style: Optional[Iterable[str]] = DEFAULT_STATUS_BAR_STYLE,
+        quit_option_style: Optional[Iterable[str]] = DEFAULT_QUIT_OPTION_STYLE,
+        folder_option_style: Optional[Iterable[str]] = DEFAULT_FOLDER_OPTION_STYLE,
         title: Optional[Union[str, Iterable[str]]] = None,
     ):
         def extract_shortcuts_menu_entries_and_preview_arguments(
@@ -759,6 +763,8 @@ class TerminalMenu:
             )
         self._status_bar_below_preview = status_bar_below_preview
         self._status_bar_style = tuple(status_bar_style) if status_bar_style is not None else ()
+        self._quit_option_style = tuple(quit_option_style) if quit_option_style is not None else ()
+        self._folder_option_style = tuple(folder_option_style) if folder_option_style is not None else ()
         self._title_lines = setup_title_or_status_bar_lines(
             title,
             show_shortcut_hints and not show_shortcut_hints_in_status_bar,
@@ -942,6 +948,8 @@ class TerminalMenu:
             self._shortcut_key_highlight_style,
             self._shortcut_brackets_highlight_style,
             self._status_bar_style,
+            self._quit_option_style,
+            self._folder_option_style,
             self._multi_select_cursor_brackets_style,
             self._multi_select_cursor_style,
         ):
@@ -1069,6 +1077,7 @@ class TerminalMenu:
             current_menu_block_displayed_height = 0  # sum all written lines
             num_cols = self._num_cols()
             if self._title_lines:
+                apply_style(self._shortcut_key_highlight_style)
                 self._stdout.write(
                     len(self._title_lines) * self._codename_to_terminal_code["cursor_up"]
                     + "\r"
@@ -1078,6 +1087,7 @@ class TerminalMenu:
                     )
                     + "\n"
                 )
+                apply_style()
             shortcut_string_len = 4 if self._shortcuts_defined else 0
             displayed_index = -1
             for displayed_index, menu_index, menu_entry in self._view:
@@ -1087,7 +1097,14 @@ class TerminalMenu:
                     if current_shortcut_key is not None:
                         apply_style(self._shortcut_brackets_highlight_style)
                         self._stdout.write("[")
-                        apply_style(self._shortcut_key_highlight_style)
+
+                        if menu_entry.lower() == 'quit':
+                            _shortcut_key_highlight_style = self._quit_option_style
+                        else:
+                            _shortcut_key_highlight_style = self._shortcut_key_highlight_style
+                        apply_style(_shortcut_key_highlight_style)
+                        # apply_style(self._shortcut_key_highlight_style)
+
                         self._stdout.write(current_shortcut_key)
                         apply_style(self._shortcut_brackets_highlight_style)
                         self._stdout.write("]")
@@ -1115,6 +1132,10 @@ class TerminalMenu:
                         menu_entry[match_obj.end() : num_cols - all_cursors_width - shortcut_string_len]
                     )
                 else:
+                    if menu_entry.lower() == 'quit':
+                        apply_style(self._quit_option_style)
+                    if menu_entry[-1] == '/':
+                        apply_style(self._folder_option_style)
                     self._stdout.write(menu_entry[: num_cols - all_cursors_width - shortcut_string_len])
                 if menu_index == self._view.active_menu_index:
                     apply_style()
@@ -1885,6 +1906,20 @@ def get_argumentparser() -> argparse.ArgumentParser:
         help='style of the status bar lines (default: "%(default)s")',
     )
     parser.add_argument(
+        "--quit-option-style",
+        action="store",
+        dest="quit_option_style",
+        default=",".join(DEFAULT_QUIT_OPTION_STYLE),
+        help='style of the quit option (default: "%(default)s")',
+    )
+    parser.add_argument(
+        "--folder-option-style",
+        action="store",
+        dest="folder_option_style",
+        default=",".join(DEFAULT_QUIT_OPTION_STYLE),
+        help='style of the quit option (default: "%(default)s")',
+    )
+    parser.add_argument(
         "--stdout",
         action="store_true",
         dest="stdout",
@@ -1945,6 +1980,14 @@ def parse_arguments() -> AttributeDict:
         args.status_bar_style = tuple(args.status_bar_style.split(","))
     else:
         args.status_bar_style = None
+    if args.quit_option_style != "":
+        args.quit_option_style = tuple(args.quit_option_style.split(","))
+    else:
+        args.quit_option_style = None
+    if args.folder_option_style != "":
+        args.folder_option_style = tuple(args.folder_option_style.split(","))
+    else:
+        args.folder_option_style = None
     if args.multi_select_cursor_brackets_style != "":
         args.multi_select_cursor_brackets_style = tuple(args.multi_select_cursor_brackets_style.split(","))
     else:
@@ -2092,6 +2135,8 @@ def main() -> None:
             status_bar=args.status_bar,
             status_bar_below_preview=args.status_bar_below_preview,
             status_bar_style=args.status_bar_style,
+            quit_option_style=args.quit_option_style,
+            folder_option_style=args.folder_option_style,
             title=args.title,
         )
     except (InvalidParameterCombinationError, InvalidStyleError, UnknownMenuEntryError) as e:
